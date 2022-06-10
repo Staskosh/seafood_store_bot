@@ -17,11 +17,41 @@ def get_moltin_token():
     return response.json()['access_token']
 
 
-def get_product(headers):
+def get_products():
+    token = get_moltin_token()
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
     products_url = 'https://api.moltin.com/v2/products'
     response = requests.get(products_url, headers=headers)
     response.raise_for_status()
-    return response.json()
+    products = response.json()['data']
+    return products
+
+
+def get_product_stock(id):
+    token = get_moltin_token()
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+    response = requests.get(f'https://api.moltin.com/v2/inventories/{id}', headers=headers)
+    response.raise_for_status()
+    stock = response.json()['data']
+
+    return stock
+
+
+def get_product(id):
+    token = get_moltin_token()
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+    products_url = f'https://api.moltin.com/v2/products/{id}'
+    response = requests.get(products_url, headers=headers)
+    response.raise_for_status()
+    product = response.json()['data']
+
+    return product
 
 
 def get_cart():
@@ -50,8 +80,8 @@ def main() -> None:
         headers = {
             'Authorization': f'Bearer {token}',
         }
-        get_product(headers)
-        add_product_to_cart(headers)
+        get_products()
+        # add_product_to_cart(headers)
     except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError) as e:
         logging.warning(e)
 
