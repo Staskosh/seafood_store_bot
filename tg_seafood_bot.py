@@ -7,18 +7,20 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 
-from handle_elasticpath_store import get_products, get_product, get_product_stock
+from handle_elasticpath_store import get_products, get_product, get_product_stock, get_product_image
 
 _database = None
-PRODUCTS = get_products()
-KEYBOARD = [[InlineKeyboardButton(product['name'], callback_data=product['id']) for product in PRODUCTS]]
+
 
 def start(bot, update):
-    reply_markup = InlineKeyboardMarkup(KEYBOARD)
+    products = get_products()
+    keyboard = [[InlineKeyboardButton(product['name'], callback_data=product['id']) for product in products]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
         f'Привет, {update.message.chat.username} \n Я бот рыбного магазина!',
         reply_markup=reply_markup,
         )
+
     return 'HANDLE_MENU'
 
 
@@ -31,24 +33,38 @@ def echo(bot, update):
 def handle_menu(bot, update):
     query = update.callback_query
     product = get_product(query.data)
+    print(product)
     product_name = product["name"]
     product_description = product["description"]
     display_price_with_tax = product['meta']['display_price']['with_tax']
     formatted_price = display_price_with_tax['formatted']
-    wight_kg = product['weight']['kg']
+    weight_kg = product['weight']['kg']
+    weight_g = product['weight']['g']
     product_stock = get_product_stock(query.data)
-    print(product_stock)
-    reply_markup = InlineKeyboardMarkup(KEYBOARD)
-    text = f'{product_name} \n {formatted_price} per {wight_kg} kg \n' \
-           f'{product_stock["total"]} units in stock \n'  \
+    total_stock = f'{product_stock["total"]} units in stock'
+    if product['meta']['stock']['availability'] == 'out-stock':
+        total_stock = 'Нет в наличии'
+    if not weight_kg and not weight_g:
+        weight = 'per unit'
+    if weight_kg:
+        weight = f'per {weight_kg} kg'
+    if weight_g:
+        weight = f'per {weight_g} g'
+    price_and_weight = f'{formatted_price} {weight}'
+    if formatted_price == '$0.00':
+        price_and_weight = 'Цена не определена'
+
+    text = f'{product_name} \n' \
+           f'{price_and_weight} \n' \
+           f'{total_stock} \n' \
            f'{product_description}'
 
-    bot.edit_message_text(
-        text=text,
-        chat_id=query.message.chat_id,
-        message_id=query.message.message_id,
-        reply_markup=reply_markup,
-    )
+    if not product['relationships']:
+        bot.send_message(chat_id=query.message.chat_id, text=text)
+    else:
+        image_link = get_product_image()
+        bot.send_photo(chat_id=query.message.chat_id, photo=image_link, caption=text)
+    bot.delete_message(chat_id=query.message.chat.id, message_id=query.message.message_id)
 
     return 'START'
 

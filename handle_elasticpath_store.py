@@ -41,6 +41,19 @@ def get_product_stock(id):
     return stock
 
 
+def get_product_image():
+    token = get_moltin_token()
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+    response = requests.get('https://api.moltin.com/v2/files', headers=headers)
+    response.raise_for_status()
+    raw_file_data = response.json()['data']
+    file_data, *_ = raw_file_data
+
+    return file_data['link']['href']
+
+
 def get_product(id):
     token = get_moltin_token()
     headers = {
