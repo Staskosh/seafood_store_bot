@@ -26,15 +26,16 @@ def get_products():
     response = requests.get(products_url, headers=headers)
     response.raise_for_status()
     products = response.json()['data']
+
     return products
 
 
-def get_product_stock(id):
+def get_product_stock(product_id):
     token = get_moltin_token()
     headers = {
         'Authorization': f'Bearer {token}',
     }
-    response = requests.get(f'https://api.moltin.com/v2/inventories/{id}', headers=headers)
+    response = requests.get(f'https://api.moltin.com/v2/inventories/{product_id}', headers=headers)
     response.raise_for_status()
     stock = response.json()['data']
 
@@ -54,12 +55,12 @@ def get_product_image():
     return file_data['link']['href']
 
 
-def get_product(id):
+def get_product(product_id):
     token = get_moltin_token()
     headers = {
         'Authorization': f'Bearer {token}',
     }
-    products_url = f'https://api.moltin.com/v2/products/{id}'
+    products_url = f'https://api.moltin.com/v2/products/{product_id}'
     response = requests.get(products_url, headers=headers)
     response.raise_for_status()
     product = response.json()['data']
@@ -68,36 +69,29 @@ def get_product(id):
 
 
 def get_cart():
+    token = get_moltin_token()
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
     response = requests.get(f'https://api.moltin.com/v2/carts/abc', headers=headers)
     response.raise_for_status()
+
     return response.json()
 
 
-def add_product_to_cart(headers):
+def add_product_to_cart(product_sku, item_quantity):
+    token = get_moltin_token()
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
     json_data = {
         'data': {
-            'sku': '01',
+            'sku': product_sku,
             'type': 'cart_item',
-            'quantity': 1,
+            'quantity': item_quantity,
         },
     }
     response = requests.post('https://api.moltin.com/v2/carts/abc/items', headers=headers, json=json_data)
     response.raise_for_status()
+
     return response.json()
-
-
-def main() -> None:
-    load_dotenv()
-    try:
-        token = get_moltin_token()
-        headers = {
-            'Authorization': f'Bearer {token}',
-        }
-        get_products()
-        # add_product_to_cart(headers)
-    except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError) as e:
-        logging.warning(e)
-
-
-if __name__ == '__main__':
-    main()
