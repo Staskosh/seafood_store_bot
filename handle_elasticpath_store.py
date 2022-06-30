@@ -68,12 +68,12 @@ def get_product(product_id):
     return product
 
 
-def get_cart():
+def get_cart_items():
     token = get_moltin_token()
     headers = {
         'Authorization': f'Bearer {token}',
     }
-    response = requests.get(f'https://api.moltin.com/v2/carts/abc', headers=headers)
+    response = requests.get(f'https://api.moltin.com/v2/carts/abc/items', headers=headers)
     response.raise_for_status()
 
     return response.json()

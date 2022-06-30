@@ -1,5 +1,7 @@
 import os
 import logging
+from pprint import pprint
+
 import redis
 from dotenv import load_dotenv
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -8,7 +10,7 @@ from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 
 from handle_elasticpath_store import get_products, get_product, get_product_stock, get_product_image, \
-    add_product_to_cart, get_cart
+    add_product_to_cart, get_cart_items
 
 _database = None
 
@@ -23,6 +25,21 @@ def start(bot, update):
         )
 
     return 'HANDLE_PRODUCT'
+
+
+def view_cart(bot, update):
+    query = update.callback_query
+    cart = get_cart_items()
+    pprint(cart)
+    cart_text = ''
+    for cart_items in cart['data']:
+        display_price_with_tax = cart_items['meta']['display_price']['with_tax']
+        formatted_price = display_price_with_tax['unit']['formatted']
+        cart_text += f'{cart_items["name"]}\n' \
+                     f'{cart_items["description"]}\n' \
+                     f'{formatted_price} per kg \n' \
+                     f'{cart_items["quantity"]} kg in cart for {display_price_with_tax["value"]["formatted"]}\n\n'
+    bot.send_message(chat_id=query.message.chat_id, text=cart_text)
 
 
 def handle_menu(bot, update):
@@ -75,6 +92,7 @@ def handle_product(bot, update):
         [InlineKeyboardButton('1 kg', callback_data=f'weight 1 {product_sku}'),
          InlineKeyboardButton('2 kg', callback_data=f'weight 2 {product_sku}'),
          InlineKeyboardButton('5 kg', callback_data=f'weight 5 {product_sku}')],
+        [InlineKeyboardButton('Корзина', callback_data='Корзина')],
         [InlineKeyboardButton('Назад', callback_data='Назад')],
     ]
 
@@ -94,6 +112,7 @@ def handle_product(bot, update):
 
     return 'HANDLE_PRODUCT'
 
+
 def handle_users_reply(bot, update):
     db = get_database_connection()
     if update.message:
@@ -109,6 +128,8 @@ def handle_users_reply(bot, update):
         user_state = 'HANDLE_MENU'
     elif user_reply.startswith('weight'):
         user_state = 'ADD_TO_CART'
+    elif user_reply == 'Корзина':
+        user_state = 'VIEW_CART'
     else:
         user_state = db.get(chat_id).decode("utf-8")
 
@@ -116,7 +137,7 @@ def handle_users_reply(bot, update):
         'START': start,
         'HANDLE_PRODUCT': handle_product,
         'HANDLE_MENU': handle_menu,
-        'HANDLE_DESCRIPTION': handle_description,
+        'VIEW_CART': view_cart,
         'ADD_TO_CART': add_to_cart,
     }
     state_handler = states_functions[user_state]
