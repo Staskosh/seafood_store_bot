@@ -1,8 +1,6 @@
-import logging
 import os
 
 import requests
-from dotenv import load_dotenv
 
 
 def get_moltin_token():
@@ -28,6 +26,25 @@ def get_products():
     products = response.json()['data']
 
     return products
+
+
+def create_customer(email):
+    token = get_moltin_token()
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+
+    json_data = {
+        'data': {
+            'type': 'customer',
+            'name': email,
+            'email': email,
+            'password': '',
+        },
+    }
+
+    response = requests.post('https://api.moltin.com/v2/customers', headers=headers, json=json_data)
+    response.raise_for_status()
 
 
 def get_product_stock(product_id):

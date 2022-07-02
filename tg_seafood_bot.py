@@ -1,7 +1,6 @@
 import os
 import logging
 import re
-from pprint import pprint
 
 import redis
 from dotenv import load_dotenv
@@ -11,7 +10,7 @@ from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 
 from handle_elasticpath_store import get_products, get_product, get_product_stock, get_product_image, \
-    add_product_to_cart, get_cart_items, delete_cart_item
+    add_product_to_cart, get_cart_items, delete_cart_item, create_customer
 
 _database = None
 
@@ -29,11 +28,8 @@ def start(bot, update):
 
 
 def handle_menu(bot, update):
-    print('handle_menu')
     products = get_products()
-
     keyboard = [[InlineKeyboardButton(product['name'], callback_data=product['id']) for product in products]]
-
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.callback_query.message.reply_text(
         'Меню',
@@ -66,7 +62,6 @@ def handle_cart_items(cart):
 
 def delete_from_cart(bot, update):
     query = update.callback_query
-    print(update)
     _, item_id = query.data.split()
     cart = delete_cart_item(item_id)
     cart_text, keyboard = handle_cart_items(cart)
@@ -83,7 +78,6 @@ def delete_from_cart(bot, update):
 def view_cart(bot, update):
     query = update.callback_query
     cart = get_cart_items()
-    pprint(cart)
     cart_text, keyboard = handle_cart_items(cart)
     keyboard.append([InlineKeyboardButton('В меню', callback_data='Назад')])
     keyboard.append([InlineKeyboardButton('Оплатить', callback_data='Оплатить')])
@@ -96,7 +90,6 @@ def view_cart(bot, update):
 
 
 def add_to_cart(bot, update):
-    print('add_to_cart')
     query = update.callback_query
     _, item_quantity, product_sku = query.data.split()
     add_product_to_cart(product_sku, int(item_quantity))
@@ -105,7 +98,6 @@ def add_to_cart(bot, update):
 
 
 def handle_product(bot, update):
-    print('handle_product')
     query = update.callback_query
     product = get_product(query.data)
     product_name = product['name']
@@ -152,19 +144,18 @@ def handle_product(bot, update):
 
 
 def check_email(bot, update):
-    print(update)
     email = update.message.text
     match = re.search(r'[\w.-]+@[\w.-]+.\w+', email)
 
     if match:
-        
+        create_customer(email)
         bot.send_message(chat_id=update.message.chat_id, text=f'{email} сохранен')
 
         return 'HANDLE_MENU'
     else:
         bot.send_message(chat_id=update.message.chat_id, text='Введите верный email')
 
-        return 'WAITING_EMAIL'
+        return 'CHECK_EMAIL'
 
 
 def waiting_email(bot, update):
