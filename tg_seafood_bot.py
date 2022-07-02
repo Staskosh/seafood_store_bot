@@ -10,7 +10,7 @@ from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 
 from handle_elasticpath_store import get_products, get_product, get_product_stock, get_product_image, \
-    add_product_to_cart, get_cart_items
+    add_product_to_cart, get_cart_items, delete_cart_item
 
 _database = None
 
@@ -27,33 +27,68 @@ def start(bot, update):
     return 'HANDLE_PRODUCT'
 
 
+def handle_menu(bot, update):
+    print('handle_menu')
+    products = get_products()
+
+    keyboard = [[InlineKeyboardButton(product['name'], callback_data=product['id']) for product in products]]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.callback_query.message.reply_text(
+        'Меню',
+        reply_markup=reply_markup,
+    )
+    bot.delete_message(chat_id=update.callback_query.message.chat.id,
+                       message_id=update.callback_query.message.message_id)
+
+    return 'HANDLE_PRODUCT'
+
+def handle_cart_items(cart):
+    cart_text = ''
+    keyboard = []
+    if cart['data']:
+        for cart_items in cart['data']:
+            display_price_with_tax = cart_items['meta']['display_price']['with_tax']
+            formatted_price = display_price_with_tax['unit']['formatted']
+            cart_text += f'{cart_items["name"]}\n' \
+                         f'{cart_items["description"]}\n' \
+                         f'{formatted_price} per kg \n' \
+                         f'{cart_items["quantity"]} kg in cart for {display_price_with_tax["value"]["formatted"]}\n\n'
+            keyboard.append([InlineKeyboardButton(f'Убрать из корзины {cart_items["name"]}',
+                                                  callback_data=f'Убрать {cart_items["id"]}')])
+    else:
+        cart_text = 'У вас еще нет товаров в корзине'
+
+    return cart_text, keyboard
+
+
+def delete_from_cart(bot, update):
+    query = update.callback_query
+    print(update)
+    _, item_id = query.data.split()
+    cart = delete_cart_item(item_id)
+    cart_text, keyboard = handle_cart_items(cart)
+    keyboard.append([InlineKeyboardButton('В меню', callback_data='Назад')])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    bot.send_message(chat_id=query.message.chat_id, text=cart_text, reply_markup=reply_markup)
+    bot.delete_message(chat_id=update.callback_query.message.chat.id,
+                       message_id=update.callback_query.message.message_id)
+
+    return 'VIEW_CART'
+
+
 def view_cart(bot, update):
     query = update.callback_query
     cart = get_cart_items()
     pprint(cart)
-    cart_text = ''
-    for cart_items in cart['data']:
-        display_price_with_tax = cart_items['meta']['display_price']['with_tax']
-        formatted_price = display_price_with_tax['unit']['formatted']
-        cart_text += f'{cart_items["name"]}\n' \
-                     f'{cart_items["description"]}\n' \
-                     f'{formatted_price} per kg \n' \
-                     f'{cart_items["quantity"]} kg in cart for {display_price_with_tax["value"]["formatted"]}\n\n'
-    bot.send_message(chat_id=query.message.chat_id, text=cart_text)
-
-
-def handle_menu(bot, update):
-    print('handle_menu')
-    products = get_products()
-    keyboard = [[InlineKeyboardButton(product['name'], callback_data=product['id']) for product in products]]
+    cart_text, keyboard = handle_cart_items(cart)
+    keyboard.append([InlineKeyboardButton('В меню', callback_data='Назад')])
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.callback_query.message.reply_text(
-        f'Меню',
-        reply_markup=reply_markup,
-    )
-    bot.delete_message(chat_id=update.callback_query.message.chat.id, message_id=update.callback_query.message.message_id)
+    bot.send_message(chat_id=query.message.chat_id, text=cart_text, reply_markup=reply_markup)
+    bot.delete_message(chat_id=update.callback_query.message.chat.id,
+                       message_id=update.callback_query.message.message_id)
 
-    return 'HANDLE_PRODUCT'
+    return 'VIEW_CART'
 
 
 def add_to_cart(bot, update):
@@ -61,6 +96,7 @@ def add_to_cart(bot, update):
     query = update.callback_query
     _, item_quantity, product_sku = query.data.split()
     add_product_to_cart(product_sku, int(item_quantity))
+
     return 'HANDLE_PRODUCT'
 
 
@@ -73,13 +109,11 @@ def handle_product(bot, update):
     product_description = product['description']
     display_price_with_tax = product['meta']['display_price']['with_tax']
     formatted_price = display_price_with_tax['formatted']
-    weight_kg = product['weight']['kg']
     product_stock = get_product_stock(query.data)
     total_stock = f'{product_stock["total"]} units in stock'
     if product['meta']['stock']['availability'] == 'out-stock':
         total_stock = 'Нет в наличии'
-    if weight_kg:
-        weight = f'per {weight_kg} kg'
+    weight = f'per {product["weight"]["kg"]} kg'
     price_and_weight = f'{formatted_price} {weight}'
     if formatted_price == '$0.00':
         price_and_weight = 'Цена не определена'
@@ -130,15 +164,18 @@ def handle_users_reply(bot, update):
         user_state = 'ADD_TO_CART'
     elif user_reply == 'Корзина':
         user_state = 'VIEW_CART'
+    elif user_reply.startswith('Убрать'):
+        user_state = 'DELETE_FROM_CART'
     else:
         user_state = db.get(chat_id).decode("utf-8")
 
     states_functions = {
         'START': start,
-        'HANDLE_PRODUCT': handle_product,
         'HANDLE_MENU': handle_menu,
+        'HANDLE_PRODUCT': handle_product,
         'VIEW_CART': view_cart,
         'ADD_TO_CART': add_to_cart,
+        'DELETE_FROM_CART': delete_from_cart,
     }
     state_handler = states_functions[user_state]
     try:

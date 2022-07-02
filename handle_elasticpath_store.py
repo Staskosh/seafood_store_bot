@@ -68,6 +68,17 @@ def get_product(product_id):
     return product
 
 
+def delete_cart_item(item_id):
+    token = get_moltin_token()
+    headers = {
+        'Authorization': f'Bearer {token}',
+    }
+    response = requests.delete(f'https://api.moltin.com/v2/carts/abc/items/{item_id}', headers=headers)
+    response.raise_for_status()
+
+    return response.json()
+
+
 def get_cart_items():
     token = get_moltin_token()
     headers = {
