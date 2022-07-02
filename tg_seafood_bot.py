@@ -1,16 +1,28 @@
-import os
 import logging
+import os
 import re
 
 import redis
 from dotenv import load_dotenv
+from handle_elasticpath_store import (
+    add_product_to_cart,
+    create_customer,
+    delete_cart_item,
+    get_cart_items,
+    get_product,
+    get_product_image,
+    get_product_stock,
+    get_products,
+)
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    CallbackQueryHandler,
+    CommandHandler,
+    Filters,
+    MessageHandler,
+    Updater,
+)
 
-from telegram.ext import Filters, Updater
-from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
-
-from handle_elasticpath_store import get_products, get_product, get_product_stock, get_product_image, \
-    add_product_to_cart, get_cart_items, delete_cart_item, create_customer
 
 _database = None
 
@@ -51,7 +63,8 @@ def handle_cart_items(cart):
             cart_text += f'{cart_items["name"]}\n' \
                          f'{cart_items["description"]}\n' \
                          f'{formatted_price} per kg \n' \
-                         f'{cart_items["quantity"]} kg in cart for {display_price_with_tax["value"]["formatted"]}\n\n'
+                         f'{cart_items["quantity"]} kg in cart ' \
+                         f'for {display_price_with_tax["value"]["formatted"]}\n\n'
             keyboard.append([InlineKeyboardButton(f'Убрать из корзины {cart_items["name"]}',
                                                   callback_data=f'Убрать {cart_items["id"]}')])
     else:
@@ -62,8 +75,9 @@ def handle_cart_items(cart):
 
 def delete_from_cart(bot, update):
     query = update.callback_query
+    chat_id = query.message.chat.id
     _, item_id = query.data.split()
-    cart = delete_cart_item(item_id)
+    cart = delete_cart_item(chat_id, item_id)
     cart_text, keyboard = handle_cart_items(cart)
     keyboard.append([InlineKeyboardButton('В меню', callback_data='Назад')])
     keyboard.append([InlineKeyboardButton('Оплатить', callback_data='Оплатить')])
@@ -77,7 +91,8 @@ def delete_from_cart(bot, update):
 
 def view_cart(bot, update):
     query = update.callback_query
-    cart = get_cart_items()
+    chat_id = query.message.chat.id
+    cart = get_cart_items(chat_id)
     cart_text, keyboard = handle_cart_items(cart)
     keyboard.append([InlineKeyboardButton('В меню', callback_data='Назад')])
     keyboard.append([InlineKeyboardButton('Оплатить', callback_data='Оплатить')])
@@ -91,8 +106,9 @@ def view_cart(bot, update):
 
 def add_to_cart(bot, update):
     query = update.callback_query
+    chat_id = query.message.chat.id
     _, item_quantity, product_sku = query.data.split()
-    add_product_to_cart(product_sku, int(item_quantity))
+    add_product_to_cart(chat_id, product_sku, int(item_quantity))
 
     return 'HANDLE_PRODUCT'
 
@@ -113,11 +129,7 @@ def handle_product(bot, update):
     price_and_weight = f'{formatted_price} {weight}'
     if formatted_price == '$0.00':
         price_and_weight = 'Цена не определена'
-
-    text = f'{product_name} \n' \
-           f'{price_and_weight} \n' \
-           f'{total_stock} \n' \
-           f'{product_description}'
+    text = f'{product_name}\n{price_and_weight}\n{total_stock}\n{product_description}'
     keyboard = [
         [InlineKeyboardButton('1 kg', callback_data=f'weight 1 {product_sku}'),
          InlineKeyboardButton('2 kg', callback_data=f'weight 2 {product_sku}'),
@@ -125,9 +137,7 @@ def handle_product(bot, update):
         [InlineKeyboardButton('Корзина', callback_data='Корзина')],
         [InlineKeyboardButton('Назад', callback_data='Назад')],
     ]
-
     reply_markup = InlineKeyboardMarkup(keyboard)
-
     if not product['relationships']:
         bot.send_message(chat_id=query.message.chat_id, text=text, reply_markup=reply_markup)
     else:
@@ -146,7 +156,6 @@ def handle_product(bot, update):
 def check_email(bot, update):
     email = update.message.text
     match = re.search(r'[\w.-]+@[\w.-]+.\w+', email)
-
     if match:
         create_customer(email)
         bot.send_message(chat_id=update.message.chat_id, text=f'{email} сохранен')

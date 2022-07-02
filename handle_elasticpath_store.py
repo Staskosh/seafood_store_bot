@@ -42,7 +42,6 @@ def create_customer(email):
             'password': '',
         },
     }
-
     response = requests.post('https://api.moltin.com/v2/customers', headers=headers, json=json_data)
     response.raise_for_status()
 
@@ -52,7 +51,8 @@ def get_product_stock(product_id):
     headers = {
         'Authorization': f'Bearer {token}',
     }
-    response = requests.get(f'https://api.moltin.com/v2/inventories/{product_id}', headers=headers)
+    product_stock_url = f'https://api.moltin.com/v2/inventories/{product_id}'
+    response = requests.get(product_stock_url, headers=headers)
     response.raise_for_status()
     stock = response.json()['data']
 
@@ -85,29 +85,31 @@ def get_product(product_id):
     return product
 
 
-def delete_cart_item(item_id):
+def delete_cart_item(chat_id, item_id):
     token = get_moltin_token()
     headers = {
         'Authorization': f'Bearer {token}',
     }
-    response = requests.delete(f'https://api.moltin.com/v2/carts/abc/items/{item_id}', headers=headers)
+    cart_url = f'https://api.moltin.com/v2/carts/{chat_id}/items/{item_id}'
+    response = requests.delete(cart_url, headers=headers)
     response.raise_for_status()
 
     return response.json()
 
 
-def get_cart_items():
+def get_cart_items(chat_id):
     token = get_moltin_token()
     headers = {
         'Authorization': f'Bearer {token}',
     }
-    response = requests.get(f'https://api.moltin.com/v2/carts/abc/items', headers=headers)
+    cart_items_url = f'https://api.moltin.com/v2/carts/{chat_id}/items'
+    response = requests.get(cart_items_url, headers=headers)
     response.raise_for_status()
 
     return response.json()
 
 
-def add_product_to_cart(product_sku, item_quantity):
+def add_product_to_cart(chat_id, product_sku, item_quantity):
     token = get_moltin_token()
     headers = {
         'Authorization': f'Bearer {token}',
@@ -119,7 +121,8 @@ def add_product_to_cart(product_sku, item_quantity):
             'quantity': item_quantity,
         },
     }
-    response = requests.post('https://api.moltin.com/v2/carts/abc/items', headers=headers, json=json_data)
+    cart_url = f'https://api.moltin.com/v2/carts/{chat_id}/items'
+    response = requests.post(cart_url, headers=headers, json=json_data)
     response.raise_for_status()
 
     return response.json()
