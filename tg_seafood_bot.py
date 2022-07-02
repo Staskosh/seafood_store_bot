@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 from pprint import pprint
 
 import redis
@@ -43,6 +44,7 @@ def handle_menu(bot, update):
 
     return 'HANDLE_PRODUCT'
 
+
 def handle_cart_items(cart):
     cart_text = ''
     keyboard = []
@@ -69,6 +71,7 @@ def delete_from_cart(bot, update):
     cart = delete_cart_item(item_id)
     cart_text, keyboard = handle_cart_items(cart)
     keyboard.append([InlineKeyboardButton('В меню', callback_data='Назад')])
+    keyboard.append([InlineKeyboardButton('Оплатить', callback_data='Оплатить')])
     reply_markup = InlineKeyboardMarkup(keyboard)
     bot.send_message(chat_id=query.message.chat_id, text=cart_text, reply_markup=reply_markup)
     bot.delete_message(chat_id=update.callback_query.message.chat.id,
@@ -83,6 +86,7 @@ def view_cart(bot, update):
     pprint(cart)
     cart_text, keyboard = handle_cart_items(cart)
     keyboard.append([InlineKeyboardButton('В меню', callback_data='Назад')])
+    keyboard.append([InlineKeyboardButton('Оплатить', callback_data='Оплатить')])
     reply_markup = InlineKeyboardMarkup(keyboard)
     bot.send_message(chat_id=query.message.chat_id, text=cart_text, reply_markup=reply_markup)
     bot.delete_message(chat_id=update.callback_query.message.chat.id,
@@ -147,6 +151,28 @@ def handle_product(bot, update):
     return 'HANDLE_PRODUCT'
 
 
+def check_email(bot, update):
+    print(update)
+    email = update.message.text
+    match = re.search(r'[\w.-]+@[\w.-]+.\w+', email)
+
+    if match:
+        
+        bot.send_message(chat_id=update.message.chat_id, text=f'{email} сохранен')
+
+        return 'HANDLE_MENU'
+    else:
+        bot.send_message(chat_id=update.message.chat_id, text='Введите верный email')
+
+        return 'WAITING_EMAIL'
+
+
+def waiting_email(bot, update):
+    bot.send_message(chat_id=update.callback_query.message.chat_id, text='Введите email')
+
+    return 'CHECK_EMAIL'
+
+
 def handle_users_reply(bot, update):
     db = get_database_connection()
     if update.message:
@@ -164,6 +190,8 @@ def handle_users_reply(bot, update):
         user_state = 'ADD_TO_CART'
     elif user_reply == 'Корзина':
         user_state = 'VIEW_CART'
+    elif user_reply == 'Оплатить':
+        user_state = 'WAITING_EMAIL'
     elif user_reply.startswith('Убрать'):
         user_state = 'DELETE_FROM_CART'
     else:
@@ -176,6 +204,8 @@ def handle_users_reply(bot, update):
         'VIEW_CART': view_cart,
         'ADD_TO_CART': add_to_cart,
         'DELETE_FROM_CART': delete_from_cart,
+        'WAITING_EMAIL': waiting_email,
+        'CHECK_EMAIL': check_email,
     }
     state_handler = states_functions[user_state]
     try:
