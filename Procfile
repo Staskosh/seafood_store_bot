@@ -1,0 +1,1 @@
+bot-tg: python3 tg_seafood_store_bot.py
