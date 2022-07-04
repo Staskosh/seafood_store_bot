@@ -1,1 +1,1 @@
-bot-tg: python3 tg_seafood_store_bot.py
+bot-tg: python3 tg_seafood_bot.py
