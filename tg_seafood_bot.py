@@ -53,7 +53,7 @@ def handle_menu(bot, update):
     return 'HANDLE_PRODUCT'
 
 
-def handle_cart_items(cart):
+def create_cart_text_and_keyboard(cart):
     cart_text = ''
     keyboard = []
     if cart['data']:
@@ -78,7 +78,7 @@ def delete_from_cart(bot, update):
     chat_id = query.message.chat.id
     _, item_id = query.data.split()
     cart = delete_cart_item(chat_id, item_id)
-    cart_text, keyboard = handle_cart_items(cart)
+    cart_text, keyboard = create_cart_text_and_keyboard(cart)
     keyboard.append([InlineKeyboardButton('В меню', callback_data='Назад')])
     keyboard.append([InlineKeyboardButton('Оплатить', callback_data='Оплатить')])
     reply_markup = InlineKeyboardMarkup(keyboard)
