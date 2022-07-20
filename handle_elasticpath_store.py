@@ -16,6 +16,8 @@ def get_moltin_token():
     }
     response = requests.post('https://api.moltin.com/oauth/access_token', headers=headers, data=payload)
     response.raise_for_status()
+    os.environ['ELASTICPATH_TOKEN'] = response.json()['access_token']
+
     return response.json()['access_token']
 
 
@@ -33,7 +35,7 @@ def get_products():
 
 
 def create_customer(email):
-    token = get_moltin_token()
+    token = os.getenv('ELASTICPATH_TOKEN')
     headers = {
         'Authorization': f'Bearer {token}',
     }
@@ -51,7 +53,7 @@ def create_customer(email):
 
 
 def get_product_stock(product_id):
-    token = get_moltin_token()
+    token = os.getenv('ELASTICPATH_TOKEN')
     headers = {
         'Authorization': f'Bearer {token}',
     }
@@ -64,7 +66,7 @@ def get_product_stock(product_id):
 
 
 def get_product_image():
-    token = get_moltin_token()
+    token = os.getenv('ELASTICPATH_TOKEN')
     headers = {
         'Authorization': f'Bearer {token}',
     }
@@ -77,7 +79,7 @@ def get_product_image():
 
 
 def get_product(product_id):
-    token = get_moltin_token()
+    token = os.getenv('ELASTICPATH_TOKEN')
     headers = {
         'Authorization': f'Bearer {token}',
     }
@@ -90,7 +92,7 @@ def get_product(product_id):
 
 
 def delete_cart_item(chat_id, item_id):
-    token = get_moltin_token()
+    token = os.getenv('ELASTICPATH_TOKEN')
     headers = {
         'Authorization': f'Bearer {token}',
     }
@@ -102,7 +104,7 @@ def delete_cart_item(chat_id, item_id):
 
 
 def get_cart_items(chat_id):
-    token = get_moltin_token()
+    token = os.getenv('ELASTICPATH_TOKEN')
     headers = {
         'Authorization': f'Bearer {token}',
     }
@@ -114,7 +116,7 @@ def get_cart_items(chat_id):
 
 
 def add_product_to_cart(chat_id, product_sku, item_quantity):
-    token = get_moltin_token()
+    token = os.getenv('ELASTICPATH_TOKEN')
     headers = {
         'Authorization': f'Bearer {token}',
     }

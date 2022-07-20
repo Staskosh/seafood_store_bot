@@ -63,11 +63,11 @@ def create_cart_text_and_keyboard(cart):
             formatted_price = display_price_with_tax['unit']['formatted']
             cart_text += textwrap.dedent(
                 f'''
-                    {cart_items["name"]}
-                    {cart_items["description"]}
-                    {formatted_price} per kg 
-                    {cart_items["quantity"]} kg in cart
-                    for {display_price_with_tax["value"]["formatted"]}
+                {cart_items["name"]}
+                {cart_items["description"]}
+                {formatted_price} per kg 
+                {cart_items["quantity"]} kg in cart
+                for {display_price_with_tax["value"]["formatted"]}
                 '''
             )
             keyboard.append([InlineKeyboardButton(f'Убрать из корзины {cart_items["name"]}',
