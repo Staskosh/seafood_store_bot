@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import textwrap
 
 import redis
 from dotenv import load_dotenv
@@ -60,11 +61,15 @@ def create_cart_text_and_keyboard(cart):
         for cart_items in cart['data']:
             display_price_with_tax = cart_items['meta']['display_price']['with_tax']
             formatted_price = display_price_with_tax['unit']['formatted']
-            cart_text += f'{cart_items["name"]}\n' \
-                         f'{cart_items["description"]}\n' \
-                         f'{formatted_price} per kg \n' \
-                         f'{cart_items["quantity"]} kg in cart ' \
-                         f'for {display_price_with_tax["value"]["formatted"]}\n\n'
+            cart_text += textwrap.dedent(
+                f'''
+                    {cart_items["name"]}
+                    {cart_items["description"]}
+                    {formatted_price} per kg 
+                    {cart_items["quantity"]} kg in cart
+                    for {display_price_with_tax["value"]["formatted"]}
+                '''
+            )
             keyboard.append([InlineKeyboardButton(f'Убрать из корзины {cart_items["name"]}',
                                                   callback_data=f'Убрать {cart_items["id"]}')])
     else:
@@ -93,7 +98,7 @@ def view_cart(bot, update):
     query = update.callback_query
     chat_id = query.message.chat.id
     cart = get_cart_items(chat_id)
-    cart_text, keyboard = handle_cart_items(cart)
+    cart_text, keyboard = create_cart_text_and_keyboard(cart)
     keyboard.append([InlineKeyboardButton('В меню', callback_data='Назад')])
     keyboard.append([InlineKeyboardButton('Оплатить', callback_data='Оплатить')])
     reply_markup = InlineKeyboardMarkup(keyboard)
