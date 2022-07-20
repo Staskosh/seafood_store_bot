@@ -9,7 +9,11 @@ def get_moltin_token():
     }
     client_id = os.getenv('MOLTIN_CLIENT_ID')
     client_secret = os.getenv('MOLTIN_CLIENT_SECRET_KEY')
-    data = f'client_id={client_id}&client_secret={client_secret}&grant_type=client_credentials'
+    data = {
+        'client_id': client_id,
+        'client_secret': client_secret,
+        'grant_type': 'client_credentials',
+    }
     response = requests.post('https://api.moltin.com/oauth/access_token', headers=headers, data=data)
     response.raise_for_status()
     return response.json()['access_token']
