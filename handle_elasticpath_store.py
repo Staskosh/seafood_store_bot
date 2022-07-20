@@ -9,12 +9,12 @@ def get_moltin_token():
     }
     client_id = os.getenv('MOLTIN_CLIENT_ID')
     client_secret = os.getenv('MOLTIN_CLIENT_SECRET_KEY')
-    data = {
+    payload = {
         'client_id': client_id,
         'client_secret': client_secret,
         'grant_type': 'client_credentials',
     }
-    response = requests.post('https://api.moltin.com/oauth/access_token', headers=headers, data=data)
+    response = requests.post('https://api.moltin.com/oauth/access_token', headers=headers, data=payload)
     response.raise_for_status()
     return response.json()['access_token']
 
@@ -38,7 +38,7 @@ def create_customer(email):
         'Authorization': f'Bearer {token}',
     }
 
-    json_data = {
+    payload = {
         'data': {
             'type': 'customer',
             'name': email,
@@ -46,7 +46,7 @@ def create_customer(email):
             'password': '',
         },
     }
-    response = requests.post('https://api.moltin.com/v2/customers', headers=headers, json=json_data)
+    response = requests.post('https://api.moltin.com/v2/customers', headers=headers, json=payload)
     response.raise_for_status()
 
 
@@ -118,7 +118,7 @@ def add_product_to_cart(chat_id, product_sku, item_quantity):
     headers = {
         'Authorization': f'Bearer {token}',
     }
-    json_data = {
+    payload = {
         'data': {
             'sku': product_sku,
             'type': 'cart_item',
@@ -126,7 +126,7 @@ def add_product_to_cart(chat_id, product_sku, item_quantity):
         },
     }
     cart_url = f'https://api.moltin.com/v2/carts/{chat_id}/items'
-    response = requests.post(cart_url, headers=headers, json=json_data)
+    response = requests.post(cart_url, headers=headers, json=payload)
     response.raise_for_status()
 
     return response.json()
