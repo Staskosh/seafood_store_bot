@@ -24,7 +24,6 @@ from telegram.ext import (
     Updater,
 )
 
-
 _database = None
 
 
@@ -35,7 +34,7 @@ def start(bot, update):
     update.message.reply_text(
         f'Привет, {update.message.chat.username} \n Я бот рыбного магазина!',
         reply_markup=reply_markup,
-        )
+    )
 
     return 'HANDLE_PRODUCT'
 
@@ -65,7 +64,7 @@ def create_cart_text_and_keyboard(cart):
                 f'''
                 {cart_items["name"]}
                 {cart_items["description"]}
-                {formatted_price} per kg 
+                {formatted_price} per kg
                 {cart_items["quantity"]} kg in cart
                 for {display_price_with_tax["value"]["formatted"]}
                 '''
@@ -97,6 +96,18 @@ def delete_from_cart(bot, update):
 def view_cart(bot, update):
     query = update.callback_query
     chat_id = query.message.chat.id
+    if query.data.startswith('Убрать'):
+        delete_from_cart(bot, update)
+        return 'VIEW_CART'
+
+    if query.data == 'Назад':
+        handle_menu(bot, update)
+        return 'HANDLE_PRODUCT'
+
+    if query.data == 'Оплатить':
+        bot.send_message(chat_id=update.callback_query.message.chat_id, text='Введите email')
+        return 'CHECK_EMAIL'
+
     cart = get_cart_items(chat_id)
     cart_text, keyboard = create_cart_text_and_keyboard(cart)
     keyboard.append([InlineKeyboardButton('В меню', callback_data='Назад')])
@@ -109,17 +120,21 @@ def view_cart(bot, update):
     return 'VIEW_CART'
 
 
-def add_to_cart(bot, update):
-    query = update.callback_query
-    chat_id = query.message.chat.id
-    _, item_quantity, product_sku = query.data.split()
-    add_product_to_cart(chat_id, product_sku, int(item_quantity))
-
-    return 'HANDLE_PRODUCT'
-
-
 def handle_product(bot, update):
     query = update.callback_query
+    if query.data.startswith('weight'):
+        chat_id = query.message.chat.id
+        _, item_quantity, product_sku = query.data.split()
+        add_product_to_cart(chat_id, product_sku, int(item_quantity))
+        return 'HANDLE_PRODUCT'
+
+    if query.data == 'Назад':
+        handle_menu(bot, update)
+
+    if query.data == 'Корзина':
+        view_cart(bot, update)
+        return 'VIEW_CART'
+
     product = get_product(query.data)
     product_name = product['name']
     product_sku = product['sku']
@@ -172,12 +187,6 @@ def check_email(bot, update):
         return 'CHECK_EMAIL'
 
 
-def waiting_email(bot, update):
-    bot.send_message(chat_id=update.callback_query.message.chat_id, text='Введите email')
-
-    return 'CHECK_EMAIL'
-
-
 def handle_users_reply(bot, update):
     db = get_database_connection()
     if update.message:
@@ -189,16 +198,6 @@ def handle_users_reply(bot, update):
 
     if user_reply == '/start':
         user_state = 'START'
-    elif user_reply == 'Назад':
-        user_state = 'HANDLE_MENU'
-    elif user_reply.startswith('weight'):
-        user_state = 'ADD_TO_CART'
-    elif user_reply == 'Корзина':
-        user_state = 'VIEW_CART'
-    elif user_reply == 'Оплатить':
-        user_state = 'WAITING_EMAIL'
-    elif user_reply.startswith('Убрать'):
-        user_state = 'DELETE_FROM_CART'
     else:
         user_state = db.get(chat_id).decode("utf-8")
 
@@ -207,9 +206,7 @@ def handle_users_reply(bot, update):
         'HANDLE_MENU': handle_menu,
         'HANDLE_PRODUCT': handle_product,
         'VIEW_CART': view_cart,
-        'ADD_TO_CART': add_to_cart,
         'DELETE_FROM_CART': delete_from_cart,
-        'WAITING_EMAIL': waiting_email,
         'CHECK_EMAIL': check_email,
     }
     state_handler = states_functions[user_state]
