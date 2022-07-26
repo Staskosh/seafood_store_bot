@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import textwrap
+from functools import partial
 
 import redis
 from dotenv import load_dotenv
@@ -27,8 +28,8 @@ from telegram.ext import (
 _database = None
 
 
-def start(bot, update):
-    products = get_products()
+def start(bot, update, client_id, client_secret):
+    products = get_products(client_id, client_secret)
     keyboard = [[InlineKeyboardButton(product['name'], callback_data=product['id']) for product in products]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
@@ -39,8 +40,8 @@ def start(bot, update):
     return 'HANDLE_PRODUCT'
 
 
-def handle_menu(bot, update):
-    products = get_products()
+def handle_menu(bot, update, client_id, client_secret):
+    products = get_products(client_id, client_secret)
     keyboard = [[InlineKeyboardButton(product['name'], callback_data=product['id']) for product in products]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.callback_query.message.reply_text(
@@ -77,11 +78,11 @@ def create_cart_text_and_keyboard(cart):
     return cart_text, keyboard
 
 
-def delete_from_cart(bot, update):
+def delete_from_cart(bot, update, client_id, client_secret):
     query = update.callback_query
     chat_id = query.message.chat.id
     _, item_id = query.data.split()
-    cart = delete_cart_item(chat_id, item_id)
+    cart = delete_cart_item(chat_id, item_id, client_id, client_secret)
     cart_text, keyboard = create_cart_text_and_keyboard(cart)
     keyboard.append([InlineKeyboardButton('В меню', callback_data='Назад')])
     keyboard.append([InlineKeyboardButton('Оплатить', callback_data='Оплатить')])
@@ -93,22 +94,22 @@ def delete_from_cart(bot, update):
     return 'VIEW_CART'
 
 
-def view_cart(bot, update):
+def view_cart(bot, update, client_id, client_secret):
     query = update.callback_query
     chat_id = query.message.chat.id
     if query.data.startswith('Убрать'):
-        delete_from_cart(bot, update)
+        delete_from_cart(bot, update, client_id, client_secret)
         return 'VIEW_CART'
 
     if query.data == 'Назад':
-        handle_menu(bot, update)
+        handle_menu(bot, update, client_id, client_secret)
         return 'HANDLE_PRODUCT'
 
     if query.data == 'Оплатить':
         bot.send_message(chat_id=update.callback_query.message.chat_id, text='Введите email')
         return 'CHECK_EMAIL'
 
-    cart = get_cart_items(chat_id)
+    cart = get_cart_items(chat_id, client_id, client_secret)
     cart_text, keyboard = create_cart_text_and_keyboard(cart)
     keyboard.append([InlineKeyboardButton('В меню', callback_data='Назад')])
     keyboard.append([InlineKeyboardButton('Оплатить', callback_data='Оплатить')])
@@ -120,28 +121,28 @@ def view_cart(bot, update):
     return 'VIEW_CART'
 
 
-def handle_product(bot, update):
+def handle_product(bot, update, client_id, client_secret):
     query = update.callback_query
     if query.data.startswith('weight'):
         chat_id = query.message.chat.id
         _, item_quantity, product_sku = query.data.split()
-        add_product_to_cart(chat_id, product_sku, int(item_quantity))
+        add_product_to_cart(chat_id, product_sku, int(item_quantity), client_id, client_secret)
         return 'HANDLE_PRODUCT'
 
     if query.data == 'Назад':
-        handle_menu(bot, update)
+        handle_menu(bot, update, client_id, client_secret)
 
     if query.data == 'Корзина':
-        view_cart(bot, update)
+        view_cart(bot, update, client_id, client_secret)
         return 'VIEW_CART'
 
-    product = get_product(query.data)
+    product = get_product(query.data, client_id, client_secret)
     product_name = product['name']
     product_sku = product['sku']
     product_description = product['description']
     display_price_with_tax = product['meta']['display_price']['with_tax']
     formatted_price = display_price_with_tax['formatted']
-    product_stock = get_product_stock(query.data)
+    product_stock = get_product_stock(query.data, client_id, client_secret)
     total_stock = f'{product_stock["total"]} units in stock'
     if product['meta']['stock']['availability'] == 'out-stock':
         total_stock = 'Нет в наличии'
@@ -161,7 +162,7 @@ def handle_product(bot, update):
     if not product['relationships']:
         bot.send_message(chat_id=query.message.chat_id, text=text, reply_markup=reply_markup)
     else:
-        image_link = get_product_image()
+        image_link = get_product_image(client_id, client_secret)
         bot.send_photo(
             chat_id=query.message.chat_id,
             photo=image_link,
@@ -173,11 +174,11 @@ def handle_product(bot, update):
     return 'HANDLE_PRODUCT'
 
 
-def check_email(bot, update):
+def check_email(bot, update, client_id, client_secret):
     email = update.message.text
     match = re.search(r'[\w.-]+@[\w.-]+.\w+', email)
     if match:
-        create_customer(email)
+        create_customer(email, client_id, client_secret)
         bot.send_message(chat_id=update.message.chat_id, text=f'{email} сохранен')
 
         return 'HANDLE_MENU'
@@ -187,7 +188,7 @@ def check_email(bot, update):
         return 'CHECK_EMAIL'
 
 
-def handle_users_reply(bot, update):
+def handle_users_reply(bot, update, client_id, client_secret):
     db = get_database_connection()
     if update.message:
         user_reply = update.message.text
@@ -202,12 +203,36 @@ def handle_users_reply(bot, update):
         user_state = db.get(chat_id).decode("utf-8")
 
     states_functions = {
-        'START': start,
-        'HANDLE_MENU': handle_menu,
-        'HANDLE_PRODUCT': handle_product,
-        'VIEW_CART': view_cart,
-        'DELETE_FROM_CART': delete_from_cart,
-        'CHECK_EMAIL': check_email,
+        'START': partial(
+            start,
+            client_id=client_id,
+            client_secret=client_secret
+        ),
+        'HANDLE_MENU': partial(
+            handle_menu,
+            client_id=client_id,
+            client_secret=client_secret
+        ),
+        'HANDLE_PRODUCT': partial(
+            handle_product,
+            client_id=client_id,
+            client_secret=client_secret
+        ),
+        'VIEW_CART': partial(
+            view_cart,
+            client_id=client_id,
+            client_secret=client_secret
+        ),
+        'DELETE_FROM_CART': partial(
+            delete_from_cart,
+            client_id=client_id,
+            client_secret=client_secret
+        ),
+        'CHECK_EMAIL': partial(
+            check_email,
+            client_id=client_id,
+            client_secret=client_secret
+        ),
     }
     state_handler = states_functions[user_state]
     try:
@@ -220,19 +245,33 @@ def handle_users_reply(bot, update):
 def get_database_connection():
     global _database
     if not _database:
-        database_password = os.getenv("REDIS_PASSWORD")
-        database_host = os.getenv("REDIS_HOST")
-        database_port = os.getenv("REDIS_PORT")
+        database_password = os.getenv('REDIS_PASSWORD')
+        database_host = os.getenv('REDIS_HOST')
+        database_port = os.getenv('REDIS_PORT')
         _database = redis.Redis(host=database_host, port=database_port, password=database_password)
     return _database
 
 
 if __name__ == '__main__':
     load_dotenv()
-    token = os.getenv("TG_TOKEN")
+    token = os.getenv('TG_TOKEN')
+    client_id = os.getenv('MOLTIN_CLIENT_ID')
+    client_secret = os.getenv('MOLTIN_CLIENT_SECRET_KEY')
     updater = Updater(token)
     dispatcher = updater.dispatcher
-    dispatcher.add_handler(CallbackQueryHandler(handle_users_reply))
-    dispatcher.add_handler(MessageHandler(Filters.text, handle_users_reply))
-    dispatcher.add_handler(CommandHandler('start', handle_users_reply))
+    dispatcher.add_handler(CallbackQueryHandler(partial(
+        handle_users_reply,
+        client_id=client_id,
+        client_secret=client_secret
+    )))
+    dispatcher.add_handler(MessageHandler(Filters.text, partial(
+        handle_users_reply,
+        client_id=client_id,
+        client_secret=client_secret
+    )))
+    dispatcher.add_handler(CommandHandler('start', partial(
+        handle_users_reply,
+        client_id=client_id,
+        client_secret=client_secret
+    )))
     updater.start_polling()
