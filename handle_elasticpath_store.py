@@ -14,8 +14,8 @@ def check_and_get_moltin_token(client_id, client_secret):
         'grant_type': 'client_credentials',
     }
     token_expires_time = os.getenv('ELASTICPATH_TOKEN_EXPIRES_TIME')
-    test_timestamp = datetime.datetime.now().timestamp()
-    if not token_expires_time or int(token_expires_time) <= test_timestamp:
+    timestamp = datetime.datetime.now().timestamp()
+    if not token_expires_time or int(token_expires_time) <= timestamp:
         response = requests.post('https://api.moltin.com/oauth/access_token', headers=headers, data=payload)
         response.raise_for_status()
         raw_token = response.json()
